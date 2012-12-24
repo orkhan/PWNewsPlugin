@@ -1,4 +1,4 @@
 PWNewsPlugin
 ============
 
-PWNewsPlugin
+Cooming soon...
