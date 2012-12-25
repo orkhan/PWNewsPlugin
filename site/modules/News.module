@@ -3,7 +3,7 @@
 /**
  * ProcessWire News module
  *
- * 
+ *
  * ProcessWire 2.x
  * Copyright (C) 2011 by Ryan Cramer
  * Licensed under GNU/GPL v2, see LICENSE.TXT
@@ -51,25 +51,41 @@ class News extends WireData implements Module {
         }
 
         if ($this->input->get->q) {
+
             if($q = $this->sanitizer->selectorValue($this->input->get->q)) {
                 // Send our sanitized query 'q' variable to the whitelist where it will be
                 // picked up and echoed in the search box by the head.inc file.
                 $this->input->whitelist('q', $q);
                 $textSearch = implode("|", $this->searchableFields).'~='.$q.',';
             }
+
         }
 
         if ($this->input->get->category) {
 
             if (is_array($this->input->get->category)) {
-                $categorySearch = 'parent_id='.implode("|", $this->input->get->category).',';
+                $categorySearch  = 'm_categories='.implode("|", $this->input->get->category);
+                $categorySearch2 = 'parent='.implode("|", $this->input->get->category);
             } else if (is_numeric($this->input->get->category)) {
-                $categorySearch = 'parent_id='.$this->input->get->category.',';
+                $categorySearch = 'm_categories='.$this->input->get->category;
+                $categorySearch2 = 'parent='.$this->input->get->category;
             }
 
         }
 
-        $this->newsList = $this->pages->find('template=news-page,'.$textSearch.$categorySearch.'limit='.$perPage.',sort=-created');
+        $byMultiple = $this->pages->find('template=news-page,'.$textSearch.'limit='.$perPage.',sort=-created');
+        $byParent = $this->pages->find('template=news-page,'.$textSearch.'limit='.$perPage.',sort=-created');
+
+        $byMultiple = $byMultiple->filter($categorySearch);
+        $byParent = $byParent->filter($categorySearch2);
+
+        foreach ($byParent as $i) {
+            $byMultiple->append($i);
+        }
+
+        $this->newsList = $byMultiple;
+
+        $this->newsList->sort("-created");
 
         return $this->newsList;
     }
@@ -125,7 +141,7 @@ class News extends WireData implements Module {
     }
 
     public function ___renderCategoryForm($options = array(
-        'type' => 'checkbox'
+        'type' => 'select'
     )) {
 
         $out        = "";
@@ -137,6 +153,7 @@ class News extends WireData implements Module {
             foreach ($categories as $category) {
                 if (in_array($category->id, $this->input->get->category)) $checked = " checked=\"checked\"";
                 $out .= "\n<label>\n\t<input type=\"checkbox\" name=\"category[]\" value=\"".$category->id."\"".$checked.">".$category->title."\n</label>";
+                $checked = "";
             }
 
         } else if ($options['type'] == "select") {
@@ -147,6 +164,7 @@ class News extends WireData implements Module {
             foreach ($categories as $category) {
                 if ($category->id == $this->input->get->category) $selected = " selected=\"selected\"";
                 $out .= "\n\t<option value=\"".$category->id."\"".$selected.">".$category->title."</option>";
+                $selected = "";
             }
             $out .= "\n</select>";
 
@@ -227,9 +245,18 @@ class News extends WireData implements Module {
         $fieldgroup_news_folder->add($this->fields->get('title'));
         $fieldgroup_news_folder->save();
 
+        $template_news_archive = new Template();
+        $template_news_archive->name = 'news-archive';
+        $template_news_archive->fieldgroup = $fieldgroup_news_folder;
+        $template_news_archive->slashUrls = 1;
+        $template_news_archive->allowPageNum = 1;
+        $template_news_archive->pageLabelField = 'title';
+        $template_news_archive = $template_news_archive->save();
+
         $template_news_folder = new Template();
         $template_news_folder->name = 'news-folder';
         $template_news_folder->fieldgroup = $fieldgroup_news_folder;
+        $template_news_folder->parentTemplates = array($template_news_archive->id);
         $template_news_folder->slashUrls = 1;
         $template_news_folder->allowPageNum = 1;
         $template_news_folder->pageLabelField = 'title';
@@ -243,6 +270,7 @@ class News extends WireData implements Module {
         $template_news_item->noChildren = 1;
         $template_news_item->save();
 
+        $template_news_archive->childTemplates = array($template_news_folder->id);
         $template_news_folder->childTemplates = array($template_news_item->id);
         $template_news_folder->save();
 
@@ -250,7 +278,7 @@ class News extends WireData implements Module {
 
     public function ___uninstall() {
 
-        $news_pages = wire('pages')->find('template=news-folder|news-page')->count();
+        $news_pages = wire('pages')->find('template=news-folder|news-page|news-archive')->count();
         if ($news_pages > 0)
             throw new WireException("There are pages using news- templates. Remove those first before uninstall");
 
@@ -277,10 +305,15 @@ class News extends WireData implements Module {
         $fields->delete($fields->get('files'));
         $fields->delete($fields->get('m_categories'));
         $fieldgroups->delete($fieldgroups->get('news-folder'));
+        $fieldgroups->delete($fieldgroups->get('news-archive'));
 
     }
 
     private function _checkInstall() {
+
+        if($this->templates->get('news-archive'))
+            throw new WireException("There is already a template installed called 'news-archive'");
+
         if($this->templates->get('news-folder'))
             throw new WireException("There is already a template installed called 'news-folder'");
 
