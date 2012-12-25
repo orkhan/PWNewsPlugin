@@ -329,8 +329,8 @@ class News extends WireData implements Module {
         if($this->fields->get('files'))
             throw new WireException("There is already a field installed called 'files'");
 
-        if($this->fields->get('multiplie-categories'))
-            throw new WireException("There is already a field installed called 'multiplie-categories'");
+        if($this->fields->get('m_categories'))
+            throw new WireException("There is already a field installed called 'm_categories'");
 
         return true;
     }
