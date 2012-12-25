@@ -64,11 +64,11 @@ class News extends WireData implements Module {
         if ($this->input->get->category) {
 
             if (is_array($this->input->get->category)) {
-                $categorySearch  = 'm_categories='.implode("|", $this->input->get->category);
-                $categorySearch2 = 'parent='.implode("|", $this->input->get->category);
+                $byMultipleSearch  = 'm_categories='.implode("|", $this->input->get->category);
+                $byParentSearch = 'parent='.implode("|", $this->input->get->category);
             } else if (is_numeric($this->input->get->category)) {
-                $categorySearch = 'm_categories='.$this->input->get->category;
-                $categorySearch2 = 'parent='.$this->input->get->category;
+                $byMultipleSearch = 'm_categories='.$this->input->get->category;
+                $byParentSearch = 'parent='.$this->input->get->category;
             }
 
         }
@@ -76,14 +76,14 @@ class News extends WireData implements Module {
         $byMultiple = $this->pages->find('template=news-page,'.$textSearch.'limit='.$perPage.',sort=-created');
         $byParent = $this->pages->find('template=news-page,'.$textSearch.'limit='.$perPage.',sort=-created');
 
-        $byMultiple = $byMultiple->filter($categorySearch);
-        $byParent = $byParent->filter($categorySearch2);
-
-        foreach ($byParent as $i) {
-            $byMultiple->append($i);
-        }
+        $byMultiple = $byMultiple->filter($byMultipleSearch);
+        $byParent = $byParent->filter($byParentSearch);
 
         $this->newsList = $byMultiple;
+
+        foreach ($byParent as $i) {
+            $this->newsList->append($i);
+        }
 
         $this->newsList->sort("-created");
 
