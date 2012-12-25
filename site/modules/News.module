@@ -56,7 +56,7 @@ class News extends WireData implements Module {
                 // Send our sanitized query 'q' variable to the whitelist where it will be
                 // picked up and echoed in the search box by the head.inc file.
                 $this->input->whitelist('q', $q);
-                $textSearch = implode("|", $this->searchableFields).'~='.$q.',';
+                $textSearch = ' ,'.implode("|", $this->searchableFields).'~='.$q;
             }
 
         }
@@ -64,28 +64,14 @@ class News extends WireData implements Module {
         if ($this->input->get->category) {
 
             if (is_array($this->input->get->category)) {
-                $byMultipleSearch  = 'm_categories='.implode("|", $this->input->get->category);
-                $byParentSearch = 'parent='.implode("|", $this->input->get->category);
+                $catSearch = 'parent_id|m_categories='.implode("|", $this->input->get->category);
             } else if (is_numeric($this->input->get->category)) {
-                $byMultipleSearch = 'm_categories='.$this->input->get->category;
-                $byParentSearch = 'parent='.$this->input->get->category;
+                $catSearch = 'parent_id|m_categories='.$this->input->get->category;
             }
 
         }
 
-        $byMultiple = $this->pages->find('template=news-page,'.$textSearch);
-        $byParent = $this->pages->find('template=news-page,'.$textSearch);
-
-        $byMultiple = $byMultiple->filter($byMultipleSearch);
-        $byParent = $byParent->filter($byParentSearch);
-
-        $this->newsList = $byMultiple;
-
-        foreach ($byParent as $i) {
-            $this->newsList->append($i);
-        }
-
-        $this->newsList->filter('sort=-created,limit='.$perPage);
+        $this->newsList = $this->pages->find('template=news-page'.$textSearch.', '.$catSearch.', limit='.$perPage.', sort=-created');
 
         return $this->newsList;
     }

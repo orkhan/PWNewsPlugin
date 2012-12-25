@@ -1,17 +1,19 @@
 <?php
 
-foreach ($modules->get("News")->renderNewsList() as $item) {
+$news = $modules->get("News");
+
+foreach ($news->renderNewsList() as $item) {
     echo $item->title . '<br />';
 }
 
-echo $modules->get("News")->renderPagination();
+echo $news->renderPagination();
 
-echo $modules->get("News")->renderBeginForm();
+echo $news->renderBeginForm();
 
-echo $modules->get("News")->renderSearchForm();
+echo $news->renderSearchForm();
 
-echo $modules->get("News")->renderCategoryForm();
+echo $news->renderCategoryForm();
 
-echo $modules->get("News")->renderEndForm();
+echo $news->renderEndForm();
 
 ?>
