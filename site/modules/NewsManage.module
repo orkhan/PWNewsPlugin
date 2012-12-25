@@ -1,0 +1,89 @@
+<?php
+
+/**
+ * ProcessWire 'News' module
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2012 by Orkhan Maharramli
+ *
+ */
+
+class NewsManage extends Process {
+
+    /**
+     * getModuleInfo is a module required by all modules to tell ProcessWire about them
+     *
+     * @return array
+     *
+     */
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'Manage News',
+            'version' => 100,
+            'summary' => 'News module manage page',
+            'singular' => true,
+            'autoload' => true,
+            'requires' => array(
+                "News"
+            )
+        );
+    }
+
+    public function init() {
+        parent::init();
+    }
+
+    public function ___execute() {
+        $this->setFuel('processHeadline', 'Manage news');
+
+        $out  = "<div id='all_news'>";
+        $out .= "<h2>". $this->_("All news:") ."</h2>";
+
+        $table = $this->modules->get("MarkupAdminDataTable");
+        $table->setEncodeEntities(false);
+        $table->headerRow(array($this->_('Title'), $this->_('Category'), $this->_('Time')));
+
+        $news_list = $this->pages->find('template=news-page,limit=2,sort=-created');
+
+        if($news_list->count() == 0) {
+            $out .= $this->_("No news yet");
+        } else {
+
+            foreach($news_list as $news) {
+
+                // output in table rows with edit link and delete checkbox?
+                $table->row(array(
+                    $news->title => "edit/?id={$news->id}",
+                    $news->parent->title => "/processwire/page/edit/?id={$news->parent->id}",
+                    date($this->config->dateFormat,$news->created)
+                ));
+            }
+            $out .= $table->render();
+        }
+
+        $out .= $news_list->renderPager();
+        $out .= "</div>";
+
+        return $out;
+    }
+
+    public function install() {
+
+        $news_list = new Page();
+        $news_list->template = $this->templates->get("admin");
+        $news_list->parent = $this->pages->get($this->config->adminRootPageID);
+        $news_list->title = 'Manage News';
+        $news_list->name = 'news-manage';
+        $news_list->process = $this;
+        $news_list->save();
+
+    }
+
+    public function uninstall() {
+
+        $p = $this->pages->get('template=admin, name=news-manage, include=all');
+        if ($p->id) $this->pages->delete($p, true); // Recursive delete
+
+    }
+
+}

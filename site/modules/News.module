@@ -1,0 +1,304 @@
+<?php
+
+/**
+ * ProcessWire News module
+ *
+ * ProcessWire 2.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class News extends WireData implements Module {
+
+    private $newsList;
+    private $searchableFields = array('title', 'headline', 'summary', 'short', 'body');
+
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'News',
+            'summary' => 'News page',
+            'version' => 100,
+            'permanent' => false,
+            'singular' => true,
+            'autoload' => true,
+        );
+    }
+
+    public function init() {
+        //
+    }
+
+    public function ___renderNewsList($options = array()) {
+
+        $out            = '';
+        $perPage        = 10;
+        $textSearch     = '';
+        $categorySearch = '';
+
+        $blockTemplate = '';
+
+        if (isset($options['perPage']) && is_numeric($options['perPage'])) {
+            $perPage = $options['perPage'];
+        }
+
+        if (isset($options['blockTemplate']) && $options['blockTemplate'] !== null) {
+            $blockTemplate = $options['blockTemplate'];
+        }
+
+        if ($this->input->get->q) {
+            if($q = $this->sanitizer->selectorValue($this->input->get->q)) {
+                // Send our sanitized query 'q' variable to the whitelist where it will be
+                // picked up and echoed in the search box by the head.inc file.
+                $this->input->whitelist('q', $q);
+                $textSearch = implode("|", $this->searchableFields).'~='.$q.',';
+            }
+        }
+
+        if ($this->input->get->category) {
+
+            if (is_array($this->input->get->category)) {
+                $categorySearch = 'parent_id='.implode("|", $this->input->get->category).',';
+            } else if (is_numeric($this->input->get->category)) {
+                $categorySearch = 'parent_id='.$this->input->get->category.',';
+            }
+
+        }
+
+        $this->newsList = $this->pages->find('template=news-page,'.$textSearch.$categorySearch.'limit='.$perPage.',sort=-created');
+
+        return $this->newsList;
+    }
+
+    /**
+     * Renders pagination.
+     *
+     * @param mixed[] $options MarkupPagerNav.
+     *
+     * @return string Returns the pagination HTML code.
+     */
+    public function ___renderPagination($options = array()) {
+        if (count($options) > 0)
+            return $this->newsList->renderPager($options);
+        return $this->newsList->renderPager();
+    }
+
+    /**
+     * Begins the HTML form tag.
+     *
+     * @param mixed[] $options actionURL.
+     *
+     * @return string Returns the HTML form tag.
+     */
+    public function ___renderBeginForm($options = array()) {
+        $actionURL = $this->page->url;
+        if (isset($options['actionURL']) && is_string($options['actionURL'])) $actionURL = $options['actionURL'];
+        return "\n<form action=\"".$actionURL."\" method=\"GET\">";
+    }
+
+    /**
+     * End the HTML form tag.
+     *
+     * @param mixed[] $options searchButtonName.
+     *
+     * @return string Returns the HTML form tag ending.
+     */
+    public function ___renderEndForm($options = array()) {
+        $button_label = "Sort";
+        if (isset($options['buttonLabel']) && is_string($options['buttonLabel'])) $button_label = $options['buttonLabel'];
+
+        return "\n<button type=\"submit\" name=\"sort\" value=\"sort\">".$button_label."</button>\n</form>";
+    }
+
+    public function ___renderSearchForm($options = array()) {
+        $placeholder = "Example: Baku";
+        if (isset($options['searchableFields']) && count($options['searchableFields']) > 0) {
+            $this->searchableFields = $options['searchableFields'];
+        }
+        if (isset($options['placeholder']) && is_string($options['placeholder'])) $placeholder = $options['placeholder'];
+
+        return "\n<input type=\"text\" name=\"q\" placeholder=\"".$placeholder."\" />\n";
+    }
+
+    public function ___renderCategoryForm($options = array(
+        'type' => 'checkbox'
+    )) {
+
+        $out        = "";
+        $categories = $this->pages->find('template=news-folder');
+
+        if ($options['type'] == "checkbox") {
+
+            $checked = "";
+            foreach ($categories as $category) {
+                if (in_array($category->id, $this->input->get->category)) $checked = " checked=\"checked\"";
+                $out .= "\n<label>\n\t<input type=\"checkbox\" name=\"category[]\" value=\"".$category->id."\"".$checked.">".$category->title."\n</label>";
+            }
+
+        } else if ($options['type'] == "select") {
+
+            $selected = "";
+            $out .= "\n<select name=\"category\">";
+            $out .= "\n\t<option value=\"0\"></option>";
+            foreach ($categories as $category) {
+                if ($category->id == $this->input->get->category) $selected = " selected=\"selected\"";
+                $out .= "\n\t<option value=\"".$category->id."\"".$selected.">".$category->title."</option>";
+            }
+            $out .= "\n</select>";
+
+        }
+
+        return $out;
+
+    }
+
+    public function ___renderDateForm($options = array()) {
+
+    }
+
+    public function ___install() {
+
+        // Check that there are no required templates & fields already...
+        $this->_checkInstall();
+
+        $field_short = new Field();
+        $field_short->type = $this->modules->get("FieldtypeTextarea");
+        $field_short->name = 'short';
+        $field_short->label = 'Short';
+        $field_short->collapsed = 0;
+        $field_short->rows = 10;
+        $field_short->theme_advanced_buttons1 = "formatselect,|,bold,italic,|,bullist,numlist,|,link,unlink,|,image,|,code,|,fullscreen";
+        $field_short->theme_advanced_blockformats = "p,h2,h3,h4,blockquote,pre";
+        $field_short->plugins = "inlinepopups,safari,media,paste,fullscreen";
+        $field_short->valid_elements = "@[id|class],a[href|target|name],strong\/b,em\/i,br,img[src|id|class|width|height|alt],ul,ol,li,p[class],h2,h3,h4,blockquote,-p,-table[border=0|cellspacing|cellpadding|width|frame|rules|height|align|summary|bgcolor|background|bordercolor],-tr[rowspan|width|height|align|valign|bgcolor|background|bordercolor],tbody,thead,tfoot,#td[colspan|rowspan|width|height|align|valign|bgcolor|background|bordercolor|scope],#th[colspan|rowspan|width|height|align|valign|scope],code,pre";
+        $field_short->inputfieldClass = 'InputfieldTinyMCE';
+        $field_short->save();
+
+        $field_files = new Field();
+        $field_files->type = $this->modules->get("FieldtypeFile");
+        $field_files->name = 'files';
+        $field_files->label = 'News page attachments';
+        $field_files->collapsed = 0;
+        $field_files->extensions = "pdf doc docx xls xlsx gif jpg jpeg png";
+        $field_files->entityEncode = 1;
+        $field_files->save();
+
+        $field_views = new Field();
+        $field_views->type = $this->modules->get("FieldtypeInteger");
+        $field_views->name = 'views';
+        $field_views->label = 'News page views';
+        $field_views->collapsed = 4;
+        $field_views->required = 0;
+        $field_views->save();
+
+        $field_m_categories = new Field();
+        $field_m_categories->type = $this->modules->get("FieldtypePage");
+        $field_m_categories->name = 'm_categories';
+        $field_m_categories->label = 'Multiplie Categories';
+        $field_m_categories->collapsed = 0;
+        $field_m_categories->required = 0;
+        $field_m_categories->derefAsPage = 0;
+        $field_m_categories->parent_id = 0;
+        $field_m_categories->labelFieldName = "title";
+        $field_m_categories->inputfield = "InputfieldPageListSelectMultiple";
+        $field_m_categories->findPagesSelector = "template=news-folder";
+        $field_m_categories->size = 10;
+        $field_m_categories->save();
+
+        $fieldgroup_news_item = new Fieldgroup();
+        $fieldgroup_news_item->name = 'news-item';
+        $fieldgroup_news_item->add($this->fields->get('title'));
+        $fieldgroup_news_item->add($this->fields->get('headline'));
+        $fieldgroup_news_item->add($this->fields->get('summary'));
+        $fieldgroup_news_item->add($field_short);
+        $fieldgroup_news_item->add($field_views);
+        $fieldgroup_news_item->add($this->fields->get('body'));
+        $fieldgroup_news_item->add($this->fields->get('images'));
+        $fieldgroup_news_item->add($field_files);
+        $fieldgroup_news_item->add($field_m_categories);
+        $fieldgroup_news_item->save();
+
+        $fieldgroup_news_folder = new Fieldgroup();
+        $fieldgroup_news_folder->name = 'news-folder';
+        $fieldgroup_news_folder->add($this->fields->get('title'));
+        $fieldgroup_news_folder->save();
+
+        $template_news_folder = new Template();
+        $template_news_folder->name = 'news-folder';
+        $template_news_folder->fieldgroup = $fieldgroup_news_folder;
+        $template_news_folder->slashUrls = 1;
+        $template_news_folder->allowPageNum = 1;
+        $template_news_folder->pageLabelField = 'title';
+        $template_news_folder = $template_news_folder->save();
+
+        $template_news_item = new Template();
+        $template_news_item->name = 'news-page';
+        $template_news_item->fieldgroup = $fieldgroup_news_item;
+        $template_news_item->parentTemplates = array($template_news_folder->id);
+        $template_news_item->slashUrls = 1;
+        $template_news_item->noChildren = 1;
+        $template_news_item->save();
+
+        $template_news_folder->childTemplates = array($template_news_item->id);
+        $template_news_folder->save();
+
+    }
+
+    public function ___uninstall() {
+
+        $news_pages = wire('pages')->find('template=news-folder|news-page')->count();
+        if ($news_pages > 0)
+            throw new WireException("There are pages using news- templates. Remove those first before uninstall");
+
+        $templates = wire('templates');
+        $templates->delete($templates->get('news-folder'));
+        $templates->delete($templates->get('news-page'));
+
+        $fieldgroups = wire('fieldgroups');
+        $fields = wire('fields');
+        foreach ($fields->get('short')->getFieldgroups() as $fieldgroup) {
+            $fieldgroups->delete($fieldgroup);
+        }
+        foreach ($fields->get('views')->getFieldgroups() as $fieldgroup) {
+            $fieldgroups->delete($fieldgroup);
+        }
+        foreach ($fields->get('files')->getFieldgroups() as $fieldgroup) {
+            $fieldgroups->delete($fieldgroup);
+        }
+        foreach ($fields->get('m_categories')->getFieldgroups() as $fieldgroup) {
+            $fieldgroups->delete($fieldgroup);
+        }
+        $fields->delete($fields->get('short'));
+        $fields->delete($fields->get('views'));
+        $fields->delete($fields->get('files'));
+        $fields->delete($fields->get('m_categories'));
+        $fieldgroups->delete($fieldgroups->get('news-folder'));
+
+    }
+
+    private function _checkInstall() {
+        if($this->templates->get('news-folder'))
+            throw new WireException("There is already a template installed called 'news-folder'");
+
+        if($this->templates->get('news-page'))
+            throw new WireException("There is already a template installed called 'news-page'");
+
+        if($this->fields->get('short'))
+            throw new WireException("There is already a field installed called 'short'");
+
+        if($this->fields->get('views'))
+            throw new WireException("There is already a field installed called 'views'");
+
+        if($this->fields->get('files'))
+            throw new WireException("There is already a field installed called 'files'");
+
+        if($this->fields->get('multiplie-categories'))
+            throw new WireException("There is already a field installed called 'multiplie-categories'");
+
+        return true;
+    }
+
+}
