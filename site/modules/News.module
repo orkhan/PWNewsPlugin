@@ -63,15 +63,22 @@ class News extends WireData implements Module {
 
         if ($this->input->get->category) {
 
+
             if (is_array($this->input->get->category)) {
-                $catSearch = 'parent_id|m_categories='.implode("|", $this->input->get->category);
+                foreach ($this->input->get->category as $k => $v) {
+                    $category = $this->sanitizer->selectorValue($v);
+                    $this->input->whitelist("category[".$k."]", $category);
+                }
+                $catSearch = ', parent_id|m_categories='.implode("|", $this->input->get->category);
             } else if (is_numeric($this->input->get->category)) {
-                $catSearch = 'parent_id|m_categories='.$this->input->get->category;
+                $category = $this->sanitizer->selectorValue($this->input->get->category);
+                $this->input->whitelist("category", $category);
+                $catSearch = ', parent_id|m_categories='.$category;
             }
 
         }
 
-        $this->newsList = $this->pages->find('template=news-page'.$textSearch.', '.$catSearch.', limit='.$perPage.', sort=-created');
+        $this->newsList = $this->pages->find('template=news-page'.$textSearch.$catSearch.', limit='.$perPage.', sort=-created');
 
         return $this->newsList;
     }
@@ -136,10 +143,12 @@ class News extends WireData implements Module {
         if ($options['type'] == "checkbox") {
 
             $checked = "";
+            $i = 0;
             foreach ($categories as $category) {
                 if (in_array($category->id, $this->input->get->category)) $checked = " checked=\"checked\"";
-                $out .= "\n<label>\n\t<input type=\"checkbox\" name=\"category[]\" value=\"".$category->id."\"".$checked.">".$category->title."\n</label>";
+                $out .= "\n<label>\n\t<input type=\"checkbox\" name=\"category[".$i."]\" value=\"".$category->id."\"".$checked.">".$category->title."\n</label>";
                 $checked = "";
+                ++$i;
             }
 
         } else if ($options['type'] == "select") {
