@@ -1,8 +1,10 @@
 <?php
 
 foreach ($modules->get("News")->renderNewsList() as $item) {
-    echo $item->title;
+    echo $item->title . '<br />';
 }
+
+echo $modules->get("News")->renderPagination();
 
 echo $modules->get("News")->renderBeginForm();
 

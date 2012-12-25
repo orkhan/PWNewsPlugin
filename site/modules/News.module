@@ -36,7 +36,7 @@ class News extends WireData implements Module {
     public function ___renderNewsList($options = array()) {
 
         $out            = '';
-        $perPage        = 10;
+        $perPage        = 2;
         $textSearch     = '';
         $categorySearch = '';
 
@@ -73,8 +73,8 @@ class News extends WireData implements Module {
 
         }
 
-        $byMultiple = $this->pages->find('template=news-page,'.$textSearch.'limit='.$perPage.',sort=-created');
-        $byParent = $this->pages->find('template=news-page,'.$textSearch.'limit='.$perPage.',sort=-created');
+        $byMultiple = $this->pages->find('template=news-page,'.$textSearch);
+        $byParent = $this->pages->find('template=news-page,'.$textSearch);
 
         $byMultiple = $byMultiple->filter($byMultipleSearch);
         $byParent = $byParent->filter($byParentSearch);
@@ -85,7 +85,7 @@ class News extends WireData implements Module {
             $this->newsList->append($i);
         }
 
-        $this->newsList->sort("-created");
+        $this->newsList->filter('sort=-created,limit='.$perPage);
 
         return $this->newsList;
     }
@@ -141,7 +141,7 @@ class News extends WireData implements Module {
     }
 
     public function ___renderCategoryForm($options = array(
-        'type' => 'select'
+        'type' => 'checkbox'
     )) {
 
         $out        = "";
